@@ -1,6 +1,4 @@
 /*
- * Copyright 2024 Rob Deas
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 import groovy.util.AntBuilder
 import groovy.cli.commons.CliBuilder
 import java.text.SimpleDateFormat
@@ -21,9 +18,9 @@ import java.util.Date
 
 // List of supported Ant commands
 def supportedCommands = [
-    'copy', 'delete', 'move', 'mkdir', 'touch', 'zip', 'unzip', 'tar', 'untar',
-    'jar', 'war', 'java', 'exec', 'ftp', 'scp', 'sshexec', 'xmlvalidate', 'xslt',
-    'echo', 'chmod', 'chown'
+        'copy', 'delete', 'move', 'mkdir', 'touch', 'zip', 'unzip', 'tar', 'untar',
+        'jar', 'war', 'java', 'exec', 'ftp', 'scp', 'sshexec', 'xmlvalidate', 'xslt',
+        'echo', 'chmod', 'chown'
 ]
 
 // Function to parse the custom file
@@ -33,6 +30,7 @@ def parseCommands(file) {
     file.eachLine { line, lineNumber ->
         line = line.trim()
         if (line.isEmpty() || line.startsWith('#')) {
+            // Skip empty lines and comments
             return
         }
         if (lineNumber == 0) {
@@ -41,15 +39,17 @@ def parseCommands(file) {
             }
             commands << [name: 'ANTCMD', attributes: line]
         } else if (line.endsWith('\\')) {
-            def linePart = line[0..-2]
+            // Multiline command part
+            def linePart = line[0..-2] // Remove trailing '\'
             if (currentCommand == null) {
                 currentCommand = linePart
             } else {
                 currentCommand += ' ' + linePart
             }
         } else {
+            // Normal command or last line of a multiline command
             def completeLine = currentCommand ? currentCommand + ' ' + line : line
-            def parts = completeLine.split(/\s+/, 2)
+            def parts = completeLine.split(/\s+/, 2) // Split into command and the rest
             if (parts.length > 1) {
                 commands << [name: parts[0], attributes: parts[1]]
             } else {
@@ -65,9 +65,14 @@ def parseCommands(file) {
 def commandToGroovy(command, supportedCommands) {
     def builder = new StringBuilder()
     if (supportedCommands.contains(command.name)) {
+
         builder.append("ant.${command.name}(${attributesToMap(command.attributes)})\n")
+
     } else {
+        // Treat as normal Groovy code
+
         builder.append("${command.name} ${command.attributes}\n")
+
     }
     return builder.toString()
 }
@@ -102,7 +107,7 @@ def cli = new CliBuilder(usage: 'groovy antcmd.groovy [options]')
 cli.h(longOpt: 'help', 'Show usage information')
 cli.i(longOpt: 'input', args: 1, argName: 'inputFile', 'Input .antcmd file')
 cli.o(longOpt: 'output', args: 1, argName: 'outputFile', 'Output Groovy script file')
-cli.e(longOpt: 'exec', args: 1, argName: 'execMode', 'Execution mode: off, on')
+cli.e(longOpt: 'exec', args: 1, argName: 'execMode', 'Execution mode: off, log, on')
 cli.x(longOpt: 'execute', args: 1, argName: 'command', 'Execute a single Ant command immediately')
 
 def options = cli.parse(args)
@@ -136,11 +141,14 @@ try {
 
 println "Parsed commands: ${commands}" // Debug output
 
+// Default values if not set by command-line options
 if (!outputFile) {
     def dateFormat = new SimpleDateFormat("yyyyMMdd-HHmm-ssSSS")
     def timestamp = dateFormat.format(new Date())
     outputFile = new File("cmds-${timestamp}.groovy")
 }
+
+
 
 def outputBuilder = new StringBuilder()
 outputBuilder.append("import groovy.util.AntBuilder\n\n")
@@ -153,7 +161,7 @@ commands[1..-1].each { command ->
 try {
     outputFile.text = outputBuilder.toString()
     println "Groovy script has been generated at ${outputFile.absolutePath}"
-    println "Output file: ${outputFile.absolutePath}" 
+    println "Output file: ${outputFile.absolutePath}" // Log the name of the output file
 } catch (Exception e) {
     println "Error writing to output file: ${e.message}"
     System.exit(1)
